@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>demo9y10</title>
+  <link rel="stylesheet" href="styles.css">
+  
+  <!-- Firebase SDKs (versión 10.7.1) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  
+  <script>
+    // Configuración de Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyDDTP_weYYo1_fGkKr4f8M_b2tIjMhjBRk",
+      authDomain: "fir-5fb5d.firebaseapp.com",
+      projectId: "fir-5fb5d",
+      storageBucket: "fir-5fb5d.firebasestorage.app",
+      messagingSenderId: "479256658609",
+      appId: "1:479256658609:web:14d94bf21e6490242bd890"
+    };
+    
+    // Inicializa Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+  </script>
+</head>
+<body>
+  <!-- Contenedor de Login (visible inicialmente) -->
+  <div id="login-container" style="display: block;">
+    <h1>Acceso a demo9y10</h1>
+    <input type="email" id="login-email" placeholder="Correo electrónico">
+    <input type="password" id="login-password" placeholder="Contraseña">
+    <button onclick="login()">Iniciar Sesión</button>
+    <!-- enable loginwithgoogle only after enable sso 
+    <button onclick="loginWithGoogle()">Acceder con Google</button>
+    -->
+    <p id="login-error" style="color: red;"></p>
+  </div>
+  <div id="app-container" style="display: none; position: relative;"> <!-- Añade position: relative -->
+    <div class="logout-container">
+      <button onclick="logout()" class="logout-btn">Cerrar Sesión</button>
+    </div>
+  </div>
+  <!--<button onclick="logout()">Cerrar Sesión</button> -->
+  </div>
+  <h1>ALTAS</h1>
+  <!-- Cient Form -->
+  <div class="form-container">
+  <h2>Alta de cliente</h2>
+  <input type="text" id="client-name" placeholder="Nombre">
+  <input type="mail" id="client-mail" placeholder="mail">
+  <input type="number" id="client-phone" placeholder="Teléfono">
+  <button onclick="addClient()">Save Client</button>
+  <!-- Provider Form -->
+  <div class="form-container">
+  <h2>Alta de Proveedor</h2>
+  <input type="text" id="provider-name" placeholder="Nombre de Proveedor" required>
+  <input type="text" id="provider-mail" placeholder="mail" required>
+  <input type="number" id="provider-phone" placeholder="Teléfono">
+  <button onclick="addProvider()">Save Provider</button>
+  <!-- Stock Form -->
+  <div class="form-container">
+  <h2>Alta en Stock</h2>
+  <input type="text" id="stock-item" placeholder="Item" required>
+  <input type="number" id="stock-quantity" placeholder="Cantidad" required>
+  <input type="number" id="stock-priceperunit" placeholder="Precio x unidad">
+  <button onclick="addStock()">Save Stock</button>
+  </div>
+  <!-- Client Selection -->
+  <h2>----------------------------------------------------------</h2>
+  <h1>CARGA DE ÓRDENES DE TRABAJO</h1>
+
+  <div class="form-container">
+  <h2>Seleccione Cliente</h2>
+  <label for="client-select">Client:</label>
+  <select id="client-select" class="form-control">
+    <option value="">-- Select Client --</option>
+    <!-- Filled dynamically -->
+  </select>
+  <!-- Stock Items Selection -->
+  <h2>Seleccione Item de Stock</h2>
+  <div id="items-container">
+    <div class="item-row">
+      <select class="stock-item-select">
+        <option value="">-- Select Item --</option>
+        <!-- Filled dynamically -->
+      </select>
+      <input type="number" class="quantity" min="1" value="1" placeholder="Qty">
+      <span class="price-display">Total: $<span id="order-total">0.00</span>
+      <button type="button" class="remove-item">×</button>
+    </div>
+  </div>
+  <button id="add-item-btn">+ Add Item</button>
+  <!-- Order Summary -->
+  <div class="summary">
+    <h3>Total: $<span id="order-total">0.00</span></h3>
+  </div>
+
+  <button id="submit-order">Create Work Order</button>
+</div>
+
+  <script>
+    // Función de Login
+    function login() {
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      
+      auth.signInWithEmailAndPassword(email, password)
+        .then(() => {
+          // Login exitoso
+          document.getElementById('login-container').style.display = 'none';
+          document.getElementById('app-container').style.display = 'block';
+        })
+        .catch(error => {
+          document.getElementById('login-error').textContent = error.message;
+        });
+    }
+
+    // Login con Google
+    function loginWithGoogle() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider)
+        .then(() => {
+          document.getElementById('login-container').style.display = 'none';
+          document.getElementById('app-container').style.display = 'block';
+        })
+        .catch(error => {
+          document.getElementById('login-error').textContent = error.message;
+        });
+    }
+
+    // Logout
+    function logout() {
+      auth.signOut()
+        .then(() => {
+          document.getElementById('login-container').style.display = 'block';
+          document.getElementById('app-container').style.display = 'none';
+        });
+    }
+
+    // Verificar estado de autenticación al cargar
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        document.getElementById('login-container').style.display = 'none';
+        document.getElementById('app-container').style.display = 'block';
+        
+        // Cargar datos solo cuando el usuario esté autenticado
+        loadClients();
+        loadStockItems();
+      } else {
+        document.getElementById('login-container').style.display = 'block';
+        document.getElementById('app-container').style.display = 'none';
+      }
+    });
+
+    // Mueve aquí todas tus funciones existentes (addClient, addProvider, etc.)
+    // Asegúrate de que todas las funciones que acceden a Firestore estén dentro
+    // del bloque auth.onAuthStateChanged o verifiquen auth.currentUser
+    
+    // Ejemplo modificado de addClient con seguridad:
+
+    function addClient() {
+      if (!auth.currentUser) {
+        alert("Debes iniciar sesión primero");
+        return;
+      }
+      
+      const name = document.getElementById("client-name").value;
+      const mail = document.getElementById("client-mail").value;
+
+      db.collection("clients").add({
+        name: name,
+        mail: mail,
+        createdBy: auth.currentUser.uid, // Guardamos quién lo creó
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      })
+      .then(() => alert("Cliente guardado!"))
+      .catch(error => alert("Error: " + error.message));
+    } // <-- Closing bracket for addClient()
+    function addProvider() {
+      if (!auth.currentUser) {
+        alert("Debes iniciar sesión primero");
+        return;
+      }
+    const name = document.getElementById("provider-name").value;
+    const mail = document.getElementById("provider-mail").value;
+
+    db.collection("provider").add({
+      name: name,
+      mail: mail,
+      createdBy: auth.currentUser.uid, // Guardamos quién lo creó
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => {
+      alert("Provider saved!");
+      document.getElementById("provider-name").value = "";
+      document.getElementById("provider-mail").value = "";
+    })  
+    .catch(error => {
+      console.error("Error saving provider:", error);
+      alert("Error: " + error.message);
+    });
+    } // <-- Closing bracket for addProvider()
+    function addStock() {
+    const item = document.getElementById("stock-item").value;
+    const quantity = document.getElementById("stock-quantity").value;
+    const priceperunit = document.getElementById("stock-priceperunit").value;
+
+    db.collection("stock").add({
+      item: item,
+      quantity: quantity,
+      priceperunit: priceperunit,
+      createdBy: auth.currentUser.uid, // Guardamos quién lo creó
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    })
+    .then(() => alert("Item saved!"))
+    .catch(error => {
+      console.error("Error:", error);
+      alert("Error saving item: " + error.message);
+    });
+  } // <-- Closing bracket for addStock()
+
+    // Load clients into dropdown
+  async function loadClients() {
+    try {
+      const snapshot = await db.collection("clients").get();
+      const select = document.getElementById('client-select');
+      
+      snapshot.forEach(doc => {
+        const option = document.createElement('option');
+        option.value = doc.id;
+        option.textContent = doc.data().name;
+        select.appendChild(option);
+      });
+    } catch (error) {
+      console.error("Error loading clients:", error);
+    }
+  } // <-- Closing bracket for loadClientes()
+
+  // Load stock items into dropdown
+  async function loadStockItems() {
+  try {
+    console.log("Starting load stock items...");
+    const snapshot = await db.collection("stock").where("quantity", ">", "0").get();
+    
+    const select = document.querySelector('.stock-item-select');
+    if (!select) {
+      console.error("Dropdown element not found");
+      return;
+    }
+
+    // Clear and rebuild options
+    select.innerHTML = '<option value="">-- Select Item --</option>';
+    
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (!data.item || !data.priceperunit) {
+        console.warn("Skipping invalid document:", doc.id, data);
+        return;
+      }
+      
+      const option = new Option(
+        `${data.item} ($${data.priceperunit})`,
+        doc.id
+      );
+      option.dataset.price = data.priceperunit; // Store price here
+      select.add(option);
+    });
+    
+    console.log("Stock items loaded successfully");
+  } catch (error) {
+    console.error("Error loading stock:", error);
+  }
+  }
+
+  // Calculate total order value
+  function calculateOrderTotal() {
+    let total = 0;
+  
+  document.querySelectorAll('.item-row').forEach(row => {
+    const select = row.querySelector('.stock-item-select');
+    const quantity = row.querySelector('.quantity').value;
+    
+    if (select.selectedIndex > 0 && quantity > 0) {
+      const price = parseFloat(select.options[select.selectedIndex].dataset.price);
+      total += price * quantity;
+    }
+  });
+  
+  document.getElementById('order-total').textContent = total.toFixed(2);
+}
+
+// Set up event listeners
+function setupEventListeners() {
+  // Trigger calculation on changes
+  document.querySelector('#items-container').addEventListener('change', (e) => {
+    if (e.target.classList.contains('stock-item-select') || 
+        e.target.classList.contains('quantity')) {
+      calculateOrderTotal();
+    }
+  });
+} // Closing bracket for loadStockItems()
+
+// Initialize everything when page loads
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadClients();
+  await loadStockItems();
+  setupEventListeners();
+  calculateOrderTotal();
+});
+    // ... resto de tus funciones (addProvider, addStock, etc.) ...
+  </script>
+</body>
+</html>
